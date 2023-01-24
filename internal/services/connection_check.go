@@ -26,6 +26,18 @@ var (
 		Help:      "Total number of errors while checking the connection to Kafka brokers",
 	}, []string{"brokerid", "connected"})
 
+	describeError = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "description_error_total",
+		Namespace: "strimzi_canary",
+		Help:      "Total number of errors while attempting to describe Kafka cluster",
+	})
+
+	adminCreationError = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "admin_creation_error_total",
+		Namespace: "strimzi_canary",
+		Help:      "Total number of errors while attempting to create the sarama admin",
+	})
+
 	// it's defined when the service is created because buckets are configurable
 	connectionLatency *prometheus.HistogramVec
 )
@@ -122,6 +134,7 @@ func (cs *connectionService) connectionCheck() {
 		admin, err := sarama.NewClusterAdmin(cs.canaryConfig.BootstrapServers, cs.saramaConfig)
 		if err != nil {
 			glog.Errorf("Error creating the Sarama cluster admin: %v", err)
+			adminCreationError.Inc()
 			return
 		}
 		cs.admin = admin
@@ -140,6 +153,7 @@ func (cs *connectionService) connectionCheck() {
 				cs.admin = nil
 			}
 			glog.Errorf("Error describing cluster: %v", err)
+			describeError.Inc() // TODO: align this with other services.
 			return
 		}
 	}
